@@ -1,0 +1,16 @@
+\begin{tabular}{llllll}
+\toprule
+method & success & harm & f1 & damage & query \\
+\midrule
+oracle\_feature\_selector & 0.744 $\pm$ 0.007 & 0.061 & 0.658 & 0.049 & 0.189 \\
+proposed\_negative\_transfer\_guard & 0.648 $\pm$ 0.009 & 0.088 & 0.591 & 0.068 & 0.236 \\
+ensemble\_disagreement\_filter & 0.542 $\pm$ 0.009 & 0.133 & 0.535 & 0.086 & 0.267 \\
+uncertainty\_gated\_transfer & 0.517 $\pm$ 0.009 & 0.145 & 0.513 & 0.090 & 0.289 \\
+domain\_adversarial\_transfer & 0.513 $\pm$ 0.010 & 0.171 & 0.527 & 0.101 & 0.197 \\
+full\_finetune\_pretrained & 0.512 $\pm$ 0.010 & 0.210 & 0.515 & 0.114 & 0.167 \\
+frozen\_pretrained\_tactile & 0.463 $\pm$ 0.012 & 0.267 & 0.480 & 0.130 & 0.144 \\
+scratch\_tactile\_policy & 0.444 $\pm$ 0.008 & 0.117 & 0.426 & 0.099 & 0.150 \\
+no\_tactile\_policy & 0.329 $\pm$ 0.008 & 0.132 & 0.286 & 0.118 & 0.105 \\
+\bottomrule
+\end{tabular}
+% Combined-stress tactile negative-transfer benchmark.

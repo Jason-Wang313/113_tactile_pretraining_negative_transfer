@@ -1,6 +1,8 @@
-ablation,combined_stress_mean_success,ci95_success,interpretation
-full_proposed_branch_mechanism,0.6771,0.0110,all components
-minus_branch_atlas,0.5540,0.0202,removes explicit unrealized futures
-minus_tail_risk_objective,0.5876,0.0163,uses mean predicted value only
-minus_diagnostic_probe,0.6045,0.0105,does not actively test ambiguous physical modes
-minus_failure_memory,0.6105,0.0108,does not reuse repaired beliefs
+ablation,mean_success_rate,ci95_success_rate,mean_harmful_transfer_rate,ci95_harmful_transfer_rate,mean_tactile_event_f1,ci95_tactile_event_f1,mean_damage_rate,ci95_damage_rate,mean_query_cost,ci95_query_cost,mean_calibration_error,ci95_calibration_error,groups,episodes_per_group
+classifier_only_guard,0.554519,0.009380,0.138186,0.002070,0.522252,0.002298,0.092032,0.001056,0.211859,0.000586,0.083354,0.000482,245,84
+full_proposed_guard,0.641351,0.008290,0.088175,0.001482,0.591865,0.002442,0.067572,0.001008,0.236501,0.000550,0.081873,0.000524,245,84
+minus_action_critical_mask,0.595432,0.008954,0.115107,0.001875,0.553620,0.002345,0.082652,0.000982,0.231785,0.000617,0.082951,0.000556,245,84
+minus_clean_transfer_retention,0.578231,0.007949,0.093108,0.001586,0.577228,0.002293,0.071832,0.001014,0.244070,0.000573,0.082221,0.000490,245,84
+minus_mismatch_detector,0.574198,0.008394,0.124873,0.001861,0.540787,0.002372,0.087972,0.001057,0.228037,0.000599,0.083182,0.000480,245,84
+minus_slip_damage_cost,0.615695,0.008655,0.109904,0.001776,0.560622,0.002325,0.094424,0.001033,0.220616,0.000555,0.082448,0.000484,245,84
+no_calibration_guard,0.604665,0.008538,0.114346,0.001722,0.557062,0.002267,0.083157,0.001055,0.247377,0.000596,0.082855,0.000435,245,84

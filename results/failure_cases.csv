@@ -1,0 +1,4 @@
+case,expected_behavior,observed_failure_mode,lesson
+unseen_taxel_dead_zone,guard abstains and routes to scratch tactile policy,success falls below oracle by 0.10 under dead-zone plus shear spike,needs explicit sensor-health model before hardware deployment
+ambiguous_texture_aliasing,action-critical mask rejects texture channels,query cost rises because the same texture can mean slip or harmless contact,negative-transfer guard does not solve semantic tactile ambiguity
+catastrophic_source_mislabel,calibration guard detects impossible source prior,full method still retains too much clean-transfer prior on easy grasps,source-dataset provenance remains a required external audit
