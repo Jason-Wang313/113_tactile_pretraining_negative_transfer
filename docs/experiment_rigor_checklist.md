@@ -9,9 +9,9 @@
 - [x] 9 methods including strong non-oracle baselines and oracle upper bound.
 - [x] 7 paired seeds and 84 rollout episodes per group.
 - [x] Pairwise seed differences and win counts.
-- [x] Stress sweep over source-target tactile mismatch.
+- [x] Stress sweep over source-target tactile mismatch with task/regime/seed detail.
 - [x] Core ablations with a predeclared margin gate.
-- [x] Failure cases and limitations.
+- [x] Eight failure cases and limitations.
 - [x] Paper-specific figures and LaTeX tables.
 
 ## ICLR Main Remaining Gaps

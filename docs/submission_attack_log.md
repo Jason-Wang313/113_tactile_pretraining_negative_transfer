@@ -2,7 +2,7 @@
 
 Paper: 113 tactile_pretraining_negative_transfer
 
-This v4 pass replaces the v3 archive decision with a stronger local empirical rebuild. The result is `STRONG_REVISE`, not final ICLR-main readiness.
+This v4.1 pass replaces the v3 archive decision with a stronger local empirical rebuild and expanded continuation audit. The result is `STRONG_REVISE`, not final ICLR-main readiness.
 
 ## Attack 1: No real robot validation.
 
@@ -57,3 +57,9 @@ Action: Hostile-pool map is updated, but final submission needs manual full-pape
 Verdict: STRONG_REVISE.
 
 Action: Keep the paper alive and expand with external validation; do not mark as submission-ready.
+
+## Attack 10: Stress/failure coverage is thin.
+
+Verdict: Addressed locally in v4.1.
+
+Action: Expanded stress evidence to `5,880` task/regime/seed rows and failure documentation to `8` concrete tactile-transfer boundaries.

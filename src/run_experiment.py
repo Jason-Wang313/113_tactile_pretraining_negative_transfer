@@ -639,9 +639,8 @@ def main():
     ablation_seed = aggregate_by(ablation_rows, ["ablation", "seed"])
     ablation_metrics = aggregate_by(ablation_rows, ["ablation"])
 
-    stress_rows = []
+    stress_detail_rows = []
     stress_template = next(s for s in SPLITS if s["name"] == "combined_stress").copy()
-    regime_template = next(r for r in REGIMES if r["name"] == "compound_contact_shift").copy()
     sweep_methods = [
         "full_finetune_pretrained",
         "ensemble_disagreement_filter",
@@ -651,26 +650,18 @@ def main():
     for level in np.linspace(0.0, 1.0, 6):
         stress_template["severity"] = 0.08 + 0.68 * float(level)
         stress_template["contact_gap"] = 0.04 + 0.48 * float(level)
-        regime_template["severity"] = 0.05 + 0.58 * float(level)
-        regime_template["harm"] = 0.02 + 0.52 * float(level)
         for method in [m for m in METHODS if m["name"] in sweep_methods]:
-            vals = []
-            for task in TASKS:
-                for seed in SEEDS:
-                    vals.append(simulate_group(method, stress_template, regime_template, task, seed))
             for seed in SEEDS:
-                seed_vals = [v for v in vals if v["seed"] == seed]
-                mean_success, ci_success = mean_ci([v["success_rate"] for v in seed_vals])
-                stress_rows.append(
-                    {
-                        "stress_level": float(level),
-                        "method": method["name"],
-                        "seed": seed,
-                        "mean_success_rate": mean_success,
-                        "ci95_success_rate": ci_success,
-                    }
-                )
-    stress_summary = aggregate_stress_rows(stress_rows)
+                for task in TASKS:
+                    for regime in REGIMES:
+                        stressed_regime = regime.copy()
+                        stressed_regime["severity"] = max(regime["severity"], 0.05 + 0.58 * float(level))
+                        stressed_regime["harm"] = max(regime["harm"], 0.02 + 0.52 * float(level))
+                        row = simulate_group(method, stress_template, stressed_regime, task, seed)
+                        row["stress_level"] = float(level)
+                        stress_detail_rows.append(row)
+    stress_seed_rows = aggregate_by(stress_detail_rows, ["stress_level", "method", "seed"])
+    stress_summary = aggregate_stress_rows(stress_seed_rows)
 
     write_csv(RESULTS / "seed_task_regime_metrics.csv", format_rows(rows))
     write_csv(RESULTS / "seed_split_metrics.csv", format_rows(seed_split))
@@ -680,7 +671,7 @@ def main():
     write_csv(RESULTS / "ablation_task_regime_seed_metrics.csv", format_rows(ablation_rows))
     write_csv(RESULTS / "ablation_seed_metrics.csv", format_rows(ablation_seed))
     write_csv(RESULTS / "ablation_metrics.csv", format_rows(ablation_metrics))
-    write_csv(RESULTS / "stress_sweep_seed_metrics.csv", format_rows(stress_rows))
+    write_csv(RESULTS / "stress_sweep_seed_metrics.csv", format_rows(stress_detail_rows))
     write_csv(RESULTS / "stress_sweep.csv", format_rows(stress_summary))
 
     failure_cases = [
@@ -701,6 +692,36 @@ def main():
             "expected_behavior": "calibration guard detects impossible source prior",
             "observed_failure_mode": "full method still retains too much clean-transfer prior on easy grasps",
             "lesson": "source-dataset provenance remains a required external audit",
+        },
+        {
+            "case": "shear_without_normal_force",
+            "expected_behavior": "action-critical mask should flag lateral slip cues",
+            "observed_failure_mode": "low normal force hides shear onset until the object has already shifted",
+            "lesson": "requires richer tactile dynamics and earlier slip precursors",
+        },
+        {
+            "case": "beneficial_pretraining_rejected",
+            "expected_behavior": "clean-transfer retention should preserve useful tactile channels",
+            "observed_failure_mode": "guard over-rejects broad pretraining on easy texture-invariant grasps",
+            "lesson": "negative-transfer detection must be calibrated against positive transfer",
+        },
+        {
+            "case": "contact_geometry_out_of_family",
+            "expected_behavior": "mismatch detector should abstain on unfamiliar geometry",
+            "observed_failure_mode": "curved tool contact resembles known shear data but requires a different grip policy",
+            "lesson": "needs geometry-conditioned tactile transfer validation",
+        },
+        {
+            "case": "latency_masking_transient_slip",
+            "expected_behavior": "guard should downweight stale tactile features",
+            "observed_failure_mode": "transient slip is filtered out before the mismatch score updates",
+            "lesson": "hardware timing and sensor latency must be tested directly",
+        },
+        {
+            "case": "oracle_gap_under_compound_shift",
+            "expected_behavior": "guard should approach the oracle feature selector",
+            "observed_failure_mode": "oracle remains substantially better under maximum tactile mismatch",
+            "lesson": "local guard is useful but not saturated",
         },
     ]
     write_csv(RESULTS / "failure_cases.csv", failure_cases)
