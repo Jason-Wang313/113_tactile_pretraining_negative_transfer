@@ -2,3 +2,8 @@ case,expected_behavior,observed_failure_mode,lesson
 unseen_taxel_dead_zone,guard abstains and routes to scratch tactile policy,success falls below oracle by 0.10 under dead-zone plus shear spike,needs explicit sensor-health model before hardware deployment
 ambiguous_texture_aliasing,action-critical mask rejects texture channels,query cost rises because the same texture can mean slip or harmless contact,negative-transfer guard does not solve semantic tactile ambiguity
 catastrophic_source_mislabel,calibration guard detects impossible source prior,full method still retains too much clean-transfer prior on easy grasps,source-dataset provenance remains a required external audit
+shear_without_normal_force,action-critical mask should flag lateral slip cues,low normal force hides shear onset until the object has already shifted,requires richer tactile dynamics and earlier slip precursors
+beneficial_pretraining_rejected,clean-transfer retention should preserve useful tactile channels,guard over-rejects broad pretraining on easy texture-invariant grasps,negative-transfer detection must be calibrated against positive transfer
+contact_geometry_out_of_family,mismatch detector should abstain on unfamiliar geometry,curved tool contact resembles known shear data but requires a different grip policy,needs geometry-conditioned tactile transfer validation
+latency_masking_transient_slip,guard should downweight stale tactile features,transient slip is filtered out before the mismatch score updates,hardware timing and sensor latency must be tested directly
+oracle_gap_under_compound_shift,guard should approach the oracle feature selector,oracle remains substantially better under maximum tactile mismatch,local guard is useful but not saturated

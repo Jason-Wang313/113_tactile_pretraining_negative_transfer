@@ -6,6 +6,8 @@
 \usepackage{booktabs}
 \usepackage{graphicx}
 \usepackage{amsmath}
+\usepackage{microtype}
+\raggedbottom
 
 \title{Tactile Pretraining Negative Transfer}
 \author{Anonymous Authors}
@@ -14,7 +16,7 @@
 \maketitle
 
 \begin{abstract}
-Tactile pretraining is usually treated as a free prior for contact-rich robot control: collect broad tactile data, pretrain an encoder, and transfer it downstream. This paper studies the failure mode that such pretraining can become action-critical negative transfer when source tactile regularities invert under new friction, compliance, texture, shear, or taxel-bias regimes. We introduce a local tactile negative-transfer benchmark with 5 contact-rich tasks, 7 tactile shift regimes, 5 train/test splits, 9 methods, 7 paired seeds, and 84 rollout episodes per group. The proposed negative-transfer guard estimates source-target tactile mismatch at the action-critical feature level and gates harmful pretrained channels while retaining clean-transfer features. Under combined contact stress, it reaches $0.648 \pm 0.009$ success versus $0.542 \pm 0.009$ for the strongest non-oracle baseline, ensemble disagreement filtering, with a paired difference of $0.106 \pm 0.008$ and wins on 7/7 seeds. It also reduces harmful-transfer rate, damage, and intervention/query cost while improving tactile-event F1. The result is a strong-revise submission direction, not a final ICLR-main-ready claim: real robot or external high-fidelity validation remains necessary.
+Tactile pretraining is usually treated as a free prior for contact-rich robot control: collect broad tactile data, pretrain an encoder, and transfer it downstream. This paper studies the failure mode that such pretraining can become action-critical negative transfer when source tactile regularities invert under new friction, compliance, texture, shear, or taxel-bias regimes. We introduce a v4.1 local tactile negative-transfer benchmark with 5 contact-rich tasks, 7 tactile shift regimes, 5 train/test splits, 9 methods, 7 paired seeds, 84 rollout episodes per group, 5,880 task/regime/seed stress rows, and 8 documented failure cases. The proposed negative-transfer guard estimates source-target tactile mismatch at the action-critical feature level and gates harmful pretrained channels while retaining clean-transfer features. Under combined contact stress, it reaches $0.648 \pm 0.009$ success versus $0.542 \pm 0.009$ for the strongest non-oracle baseline, ensemble disagreement filtering, with a paired difference of $0.106 \pm 0.008$ and wins on 7/7 seeds. It also reduces harmful-transfer rate, damage, and intervention/query cost while improving tactile-event F1. The result is a strong-revise submission direction, not a final ICLR-main-ready claim: real robot or external high-fidelity validation remains necessary.
 \end{abstract}
 
 \section{Motivation}
@@ -39,6 +41,8 @@ where $\widehat{b}_j$ estimates clean-transfer utility, $\widehat{d}_j$ estimate
 The benchmark is local and deterministic given the released seed. It spans five manipulation tasks: slip-limited grasp, peg-in-hole contact search, cloth-edge pull, cable threading, and lid-twist force control. It crosses seven tactile regimes: source-matched, low friction, soft compliance, texture aliasing, taxel bias, transient shear spike, and compound contact shift. Five splits increase source-target mismatch from clean transfer to combined stress.
 
 We compare nine methods: no tactile policy, scratch tactile policy, frozen pretrained tactile encoder, full fine-tuning, domain-adversarial transfer, uncertainty-gated transfer, ensemble disagreement filtering, the proposed negative-transfer guard, and an oracle feature selector. The oracle is included only to show headroom and is not counted as a baseline to beat.
+
+The generator writes raw seed/task/regime/split metrics, aggregate metrics, paired statistics, ablations, stress sweeps, failure cases, figures, and LaTeX tables. The v4.1 stress audit records task/regime/seed detail rather than only seed-level aggregates.
 
 \section{Results}
 
@@ -81,7 +85,7 @@ Table~\ref{tab:ablation} shows that the full mechanism is needed. The full guard
 \end{figure}
 
 \paragraph{Stress sweep.}
-Figure~\ref{fig:stress} increases source-target tactile mismatch. Frozen and fully fine-tuned tactile pretraining lose reliability as the contact regime moves away from the source. Ensemble filtering is safer, but the proposed guard maintains higher success because it distinguishes action-critical harmful channels from harmless uncertainty.
+Figure~\ref{fig:stress} increases source-target tactile mismatch over 5,880 task/regime/seed rows. Frozen and fully fine-tuned tactile pretraining lose reliability as the contact regime moves away from the source. Ensemble filtering is safer, but the proposed guard maintains higher success because it distinguishes action-critical harmful channels from harmless uncertainty. At maximum stress, the proposed guard reaches $0.590 \pm 0.006$ success versus $0.439 \pm 0.007$ for ensemble disagreement filtering and $0.711 \pm 0.006$ for the oracle feature selector.
 
 \begin{figure}[t]
 \centering
@@ -89,6 +93,10 @@ Figure~\ref{fig:stress} increases source-target tactile mismatch. Frozen and ful
 \caption{Stress sweep over source-target tactile mismatch.}
 \label{fig:stress}
 \end{figure}
+
+\section{Failure Cases}
+
+The failure-case audit records eight boundaries: unseen taxel dead zones, ambiguous texture aliasing, catastrophic source mislabels, shear without normal force, beneficial pretraining rejected too aggressively, contact geometry outside the source family, latency masking transient slip, and remaining oracle headroom under compound shift. These cases are the reason the paper must remain a strong-revise project: a real submission needs sensor-health modeling, hardware timing checks, geometry-conditioned tactile transfer validation, and robot or independent high-fidelity rollouts.
 
 \section{Related Work Boundary}
 
@@ -98,7 +106,10 @@ Tactile-reactive control, tactile diffusion policies, and tactile representation
 
 The evidence is local. The benchmark is paper-specific, multi-seed, and stricter than the archived scaffold, but it is not a real robot experiment and not an external high-fidelity simulator benchmark. The manuscript also needs manual full-paper related-work synthesis and trained tactile checkpoint release before a final main-conference submission. The honest terminal decision is therefore \textbf{STRONG\_REVISE}: the paper is worth rebuilding aggressively, but it is not yet ICLR-main ready.
 
+\begingroup
+\raggedright
 \bibliographystyle{iclr2026_conference}
 \bibliography{references}
+\endgroup
 
 \end{document}

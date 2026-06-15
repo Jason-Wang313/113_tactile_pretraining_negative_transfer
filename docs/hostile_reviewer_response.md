@@ -14,4 +14,4 @@ Response: The ablation table rejects that. The full guard reaches `0.641 +/- 0.0
 
 ## Reviewer Attack: The paper is not ready for ICLR main.
 
-Response: Agreed. The honest decision is `STRONG_REVISE`, not ready. The evidence is now paper-specific and locally rigorous, but the submission still needs real robot or external high-fidelity validation, trained tactile checkpoints, and deeper manual related work.
+Response: Agreed. The honest decision is `STRONG_REVISE`, not ready. The v4.1 evidence is paper-specific and locally rigorous, with 5,880 detailed stress rows and 8 failure cases, but the submission still needs real robot or external high-fidelity validation, trained tactile checkpoints, and deeper manual related work.

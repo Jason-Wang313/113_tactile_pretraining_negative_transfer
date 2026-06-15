@@ -4,9 +4,9 @@ Paper: 113 tactile_pretraining_negative_transfer
 
 Existing v3 decision: KILL_ARCHIVE
 
-v4 gate verdict: STRONG_REVISE
+v4.1 gate verdict: STRONG_REVISE
 
-Evidence digest: tactile-negative-transfer-local-v4
+Evidence digest: tactile-negative-transfer-local-v4.1
 
 ## Passed Local Gates
 
@@ -18,6 +18,9 @@ Evidence digest: tactile-negative-transfer-local-v4
 - Query-cost delta: `-0.031 <= 0`.
 - Paired-seed wins: `7/7 >= 5/7`.
 - Ablation margin: `0.026 >= 0.020`.
+- Expanded stress coverage: `5,880` task/regime/seed rows.
+- Failure-case coverage: `8` rows.
+- Numeric integrity: no NaN or infinite values.
 
 ## Remaining Main-Conference Blockers
 
