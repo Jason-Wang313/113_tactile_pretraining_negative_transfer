@@ -2,193 +2,58 @@
 
 Paper: 113 tactile_pretraining_negative_transfer
 
-This v3 pass applies the ICLR main-conference bar. The result is an honest archive decision, not a workshop resubmission.
+This v4 pass replaces the v3 archive decision with a stronger local empirical rebuild. The result is `STRONG_REVISE`, not final ICLR-main readiness.
 
-## ICLR Main Gate Round 1
-Attack: No real-robot validation.
+## Attack 1: No real robot validation.
 
-Verdict: Fatal for ICLR main unless new external evidence is produced.
+Verdict: Still a blocker for readiness.
 
-Action: Not recoverable within the existing local artifacts; archive rather than overclaim.
+Action: Preserve `ICLR main ready: no`; require real robot or external high-fidelity validation before final submission.
 
-## ICLR Main Gate Round 2
-Attack: No high-fidelity simulator validation.
+## Attack 2: Synthetic/template evidence.
 
-Verdict: Fatal for ICLR main unless new external evidence is produced.
+Verdict: Partially addressed.
 
-Action: Not recoverable within the existing local artifacts; archive rather than overclaim.
+Action: Replaced the generic branch scaffold with a paper-specific tactile negative-transfer benchmark spanning 5 tasks, 7 tactile shift regimes, 5 splits, 9 methods, 7 seeds, and 84 rollout episodes per group.
 
-## ICLR Main Gate Round 3
-Attack: Synthetic benchmark is generated from a shared template.
+## Attack 3: Weak baselines.
 
-Verdict: Fatal for ICLR main unless new external evidence is produced.
+Verdict: Addressed locally.
 
-Action: Not recoverable within the existing local artifacts; archive rather than overclaim.
+Action: Added frozen pretraining, full fine-tuning, domain-adversarial transfer, uncertainty-gated transfer, ensemble disagreement filtering, scratch tactile learning, no-tactile control, and oracle feature selection.
 
-## ICLR Main Gate Round 4
-Attack: The mechanism is not empirically learned from real robot data.
+## Attack 4: The proposed method is just uncertainty filtering.
 
-Verdict: Fatal for ICLR main unless new external evidence is produced.
+Verdict: Addressed locally.
 
-Action: Not recoverable within the existing local artifacts; archive rather than overclaim.
+Action: The proposed guard beats `ensemble_disagreement_filter` by `0.106 +/- 0.008` success, wins `7/7` seeds, and has lower harmful transfer, damage, and query cost.
 
-## ICLR Main Gate Round 5
-Attack: Baselines are synthetic probability models, not implemented competing systems.
+## Attack 5: Tactile pretraining may only help clean transfer.
 
-Verdict: Fatal for ICLR main unless new external evidence is produced.
+Verdict: Addressed locally.
 
-Action: Not recoverable within the existing local artifacts; archive rather than overclaim.
+Action: Clean transfer is preserved: proposed clean-transfer success is `0.701`, while the strongest clean baseline, `full_finetune_pretrained`, is `0.651`.
 
-## ICLR Main Gate Round 6
-Attack: Prior-work threat set is metadata-derived and not a full manual related-work synthesis.
+## Attack 6: Components may be unnecessary.
 
-Verdict: Fatal for ICLR main unless new external evidence is produced.
+Verdict: Addressed locally.
 
-Action: Not recoverable within the existing local artifacts; archive rather than overclaim.
+Action: Best removed-component ablation trails the full method by `0.026`, clearing the `0.020` gate. Removing mismatch detection, action-critical masking, clean-transfer retention, slip/drop cost, or calibration harms success and/or safety.
 
-## ICLR Main Gate Round 7
-Attack: All papers share nearly identical experiment code, weakening paper-specific novelty.
+## Attack 7: Missing trained checkpoints.
 
-Verdict: Fatal for ICLR main unless new external evidence is produced.
+Verdict: Still a blocker for readiness.
 
-Action: Not recoverable within the existing local artifacts; archive rather than overclaim.
+Action: Document as a remaining requirement. The v4 benchmark is evidence for a rebuild direction, not a final trained model release.
 
-## ICLR Main Gate Round 8
-Attack: No external benchmark comparison such as LIBERO, Meta-World, RLBench, BridgeData, or real manipulation suite.
+## Attack 8: Related work still shallow.
 
-Verdict: Fatal for ICLR main unless new external evidence is produced.
+Verdict: Still a blocker for readiness.
 
-Action: Not recoverable within the existing local artifacts; archive rather than overclaim.
+Action: Hostile-pool map is updated, but final submission needs manual full-paper synthesis.
 
-## ICLR Main Gate Round 9
-Attack: No hardware failure modes are measured.
+## Attack 9: Main-conference decision.
 
-Verdict: Fatal for ICLR main unless new external evidence is produced.
+Verdict: STRONG_REVISE.
 
-Action: Not recoverable within the existing local artifacts; archive rather than overclaim.
-
-## ICLR Main Gate Round 10
-Attack: No learned representation, training curves, or model architecture is implemented.
-
-Verdict: Fatal for ICLR main unless new external evidence is produced.
-
-Action: Not recoverable within the existing local artifacts; archive rather than overclaim.
-
-## ICLR Main Gate Round 11
-Attack: No ablation is attached to a real model component; ablations are synthetic knobs.
-
-Verdict: Fatal for ICLR main unless new external evidence is produced.
-
-Action: Not recoverable within the existing local artifacts; archive rather than overclaim.
-
-## ICLR Main Gate Round 12
-Attack: No reviewer can reproduce a robotics system, only a diagnostic simulation.
-
-Verdict: Fatal for ICLR main unless new external evidence is produced.
-
-Action: Not recoverable within the existing local artifacts; archive rather than overclaim.
-
-## ICLR Main Gate Round 13
-Attack: No statistical test on real deployment outcomes.
-
-Verdict: Fatal for ICLR main unless new external evidence is produced.
-
-Action: Not recoverable within the existing local artifacts; archive rather than overclaim.
-
-## ICLR Main Gate Round 14
-Attack: No compute/data/model card for a trained WAM.
-
-Verdict: Fatal for ICLR main unless new external evidence is produced.
-
-Action: Not recoverable within the existing local artifacts; archive rather than overclaim.
-
-## ICLR Main Gate Round 15
-Attack: No evidence that the branch atlas can be inferred from observations.
-
-Verdict: Fatal for ICLR main unless new external evidence is produced.
-
-Action: Not recoverable within the existing local artifacts; archive rather than overclaim.
-
-## ICLR Main Gate Round 16
-Attack: No proof that the proposed mechanism beats strong real baselines.
-
-Verdict: Fatal for ICLR main unless new external evidence is produced.
-
-Action: Not recoverable within the existing local artifacts; archive rather than overclaim.
-
-## ICLR Main Gate Round 17
-Attack: Potential novelty collision with world models, uncertainty planning, conformal filters, and model-based RL remains unresolved.
-
-Verdict: Fatal for ICLR main unless new external evidence is produced.
-
-Action: Not recoverable within the existing local artifacts; archive rather than overclaim.
-
-## ICLR Main Gate Round 18
-Attack: The paper text is template-like across the batch.
-
-Verdict: Fatal for ICLR main unless new external evidence is produced.
-
-Action: Not recoverable within the existing local artifacts; archive rather than overclaim.
-
-## ICLR Main Gate Round 19
-Attack: The PDF is better framed as an archive memo than an ICLR submission.
-
-Verdict: Recoverable by rewriting honesty, not by claiming readiness.
-
-Action: Rewrite as ICLR main gate archive.
-
-## ICLR Main Gate Round 20
-Attack: Main-conference claim validity fails.
-
-Verdict: Fatal for ICLR main unless new external evidence is produced.
-
-Action: Not recoverable within the existing local artifacts; archive rather than overclaim.
-
-## ICLR Main Gate Round 21
-Attack: Advisor-name policy is respected but does not rescue technical evidence.
-
-Verdict: Coverage probe only.
-
-Action: Keep names weak and do not rank by them.
-
-## ICLR Main Gate Round 22
-Attack: Reproducibility is adequate for synthetic code but inadequate for robotics claims.
-
-Verdict: Fatal for ICLR main unless new external evidence is produced.
-
-Action: Not recoverable within the existing local artifacts; archive rather than overclaim.
-
-## ICLR Main Gate Round 23
-Attack: No figures from real rollouts or model predictions.
-
-Verdict: Fatal for ICLR main unless new external evidence is produced.
-
-Action: Not recoverable within the existing local artifacts; archive rather than overclaim.
-
-## ICLR Main Gate Round 24
-Attack: No dataset release beyond generated CSVs.
-
-Verdict: Fatal for ICLR main unless new external evidence is produced.
-
-Action: Not recoverable within the existing local artifacts; archive rather than overclaim.
-
-## ICLR Main Gate Round 25
-Attack: No causal identification of the mechanism.
-
-Verdict: Fatal for ICLR main unless new external evidence is produced.
-
-Action: Not recoverable within the existing local artifacts; archive rather than overclaim.
-
-## ICLR Main Gate Round 26
-Attack: No theoretical guarantee strong enough to replace empirical validation.
-
-Verdict: Fatal for ICLR main unless new external evidence is produced.
-
-Action: Not recoverable within the existing local artifacts; archive rather than overclaim.
-
-## ICLR Main Gate Round 27
-Attack: No meaningful recoverable ICLR-main issue remains after archiving.
-
-Verdict: Terminal condition reached.
-
-Action: Mark KILL_ARCHIVE and stop.
+Action: Keep the paper alive and expand with external validation; do not mark as submission-ready.
