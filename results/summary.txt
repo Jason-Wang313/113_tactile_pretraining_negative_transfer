@@ -1,33 +1,18 @@
-Paper 113 tactile pretraining negative-transfer local evidence rebuild
-Design: 5 tasks x 7 tactile regimes x 5 splits x 9 methods, 7 seeds, 84 rollout episodes per group.
+Paper 113 v5 expanded tactile negative-transfer audit
 Terminal decision: STRONG_REVISE
-Strongest non-oracle baseline under combined stress: ensemble_disagreement_filter
-Proposed combined-stress success: 0.648 +/- 0.009
-Strongest baseline combined-stress success: 0.542 +/- 0.009
-Pairwise proposed-minus-strongest success diff: 0.106 +/- 0.008; wins=7/7
-Clean-transfer comparison against strongest clean baseline (full_finetune_pretrained): proposed=0.701, baseline=0.651
-Harmful-transfer delta: -0.045
-Tactile-event F1 delta: 0.056
-Damage delta: -0.019
-Query-cost delta: -0.031
-Ablation margin over best removed component (minus_slip_damage_cost): 0.026
-Gate results:
-- success_margin_ge_0.030: True
-- harmful_transfer_delta_le_-0.020: True
-- clean_transfer_drop_ge_-0.005: True
-- tactile_event_f1_delta_ge_0.030: True
-- damage_delta_le_0: True
-- query_cost_delta_le_0: True
-- paired_seed_wins_ge_5: True
-- ablation_margin_ge_0.020: True
-
-Combined-stress ranking:
-- oracle_feature_selector: success=0.744 +/- 0.007; harm=0.061; f1=0.658; damage=0.049; query=0.189
-- proposed_negative_transfer_guard: success=0.648 +/- 0.009; harm=0.088; f1=0.591; damage=0.068; query=0.236
-- ensemble_disagreement_filter: success=0.542 +/- 0.009; harm=0.133; f1=0.535; damage=0.086; query=0.267
-- uncertainty_gated_transfer: success=0.517 +/- 0.009; harm=0.145; f1=0.513; damage=0.090; query=0.289
-- domain_adversarial_transfer: success=0.513 +/- 0.010; harm=0.171; f1=0.527; damage=0.101; query=0.197
-- full_finetune_pretrained: success=0.512 +/- 0.010; harm=0.210; f1=0.515; damage=0.114; query=0.167
-- frozen_pretrained_tactile: success=0.463 +/- 0.012; harm=0.267; f1=0.480; damage=0.130; query=0.144
-- scratch_tactile_policy: success=0.444 +/- 0.008; harm=0.117; f1=0.426; damage=0.099; query=0.150
-- no_tactile_policy: success=0.329 +/- 0.008; harm=0.132; f1=0.286; damage=0.118; query=0.105
+ICLR main ready: False
+Proposed: action_critical_tactile_transfer_guard_v5
+Strongest non-oracle: proposed_negative_transfer_guard_v4
+Hard success: 0.747189 vs 0.700348
+Hard utility: 0.634790 vs 0.553074
+Harmful-transfer delta: -0.029397
+Tactile-event F1 delta: 0.104000
+Damage delta: -0.013334
+Query-cost delta: -0.022803
+Regret delta: -0.011318
+Paired hard utility wins: 10/10
+Ablation utility margin: 0.034381
+Stress endpoint utility margin: 0.084782
+Strict fixed-risk coverage: 0.897500
+Strict fixed-risk utility margin: 0.497596
+Scope gate: failed honestly; no real tactile robot/high-fidelity evidence or trained checkpoint.

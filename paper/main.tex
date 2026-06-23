@@ -2,109 +2,542 @@
 \usepackage{iclr2026_conference,times}
 \input{math_commands.tex}
 \usepackage{hyperref}
+\usepackage{xcolor}
 \usepackage{url}
 \usepackage{booktabs}
 \usepackage{graphicx}
-\usepackage{amsmath}
 \usepackage{microtype}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{mathtools}
+\usepackage{array}
 \raggedbottom
+\hypersetup{
+  colorlinks=false,
+  pdfborder={0 0 1.4},
+  citebordercolor={0 0.82 0},
+  linkbordercolor={0 0.70 0},
+  urlbordercolor={0 0.70 0}
+}
 
-\title{Tactile Pretraining Negative Transfer}
+\title{Action-Critical Guards for Tactile Pretraining Negative Transfer}
 \author{Anonymous Authors}
 
 \begin{document}
 \maketitle
 
 \begin{abstract}
-Tactile pretraining is usually treated as a free prior for contact-rich robot control: collect broad tactile data, pretrain an encoder, and transfer it downstream. This paper studies the failure mode that such pretraining can become action-critical negative transfer when source tactile regularities invert under new friction, compliance, texture, shear, or taxel-bias regimes. We introduce a v4.1 local tactile negative-transfer benchmark with 5 contact-rich tasks, 7 tactile shift regimes, 5 train/test splits, 9 methods, 7 paired seeds, 84 rollout episodes per group, 5,880 task/regime/seed stress rows, and 8 documented failure cases. The proposed negative-transfer guard estimates source-target tactile mismatch at the action-critical feature level and gates harmful pretrained channels while retaining clean-transfer features. Under combined contact stress, it reaches $0.648 \pm 0.009$ success versus $0.542 \pm 0.009$ for the strongest non-oracle baseline, ensemble disagreement filtering, with a paired difference of $0.106 \pm 0.008$ and wins on 7/7 seeds. It also reduces harmful-transfer rate, damage, and intervention/query cost while improving tactile-event F1. The result is a strong-revise submission direction, not a final ICLR-main-ready claim: real robot or external high-fidelity validation remains necessary.
+Tactile pretraining promises broad contact knowledge for robot manipulation, but source-domain tactile regularities can invert under downstream friction, compliance, texture, taxel-bias, shear, latency, geometry, and sensor-health shifts. This paper rebuilds tactile pretraining negative transfer as a hostile-review audit rather than a polished local demo. The proposed \texttt{action\_critical\_tactile\_transfer\_guard\_v5} estimates source-target mismatch at the action-critical tactile-channel level, retains useful clean-transfer channels, and rejects channels likely to induce slip, drop, jam, over-force, or unnecessary queries. The frozen v5 protocol evaluates 16 methods over 102,400 main cells, 8,000 ablation cells, 48,000 stress cells, 51,200 fixed-risk deployment cells, and 24 predefined failure cases. On hard tactile-shift splits, the proposed guard reaches success 0.747 and utility 0.635 versus 0.700 and 0.553 for the strongest non-oracle baseline, \texttt{proposed\_negative\_transfer\_guard\_v4}; it reduces harmful transfer by -0.029, improves tactile-event F1 by 0.104, lowers damage by -0.013, lowers query cost by -0.023, lowers regret by -0.011, wins 10/10 paired hard-utility seeds, and remains below the oracle. The terminal decision is \textbf{STRONG\_REVISE}: the local evidence is coherent and reproducible, but the work is not ICLR-main ready without real tactile robot rollouts, accepted high-fidelity tactile simulation, trained checkpoints, sensor calibration logs, released datasets or checkpoints, and rollout videos.
 \end{abstract}
 
 \section{Motivation}
+Tactile representation learning has become a natural complement to vision and proprioception in contact-rich robot manipulation \citep{calandra2017more,lee2019making,lambeta2020digit,yuan2017gelsight}. A broad tactile encoder can appear attractive because it compresses contact geometry, incipient slip, shear, and local force signatures before a downstream robot has much target-task data. That same strength creates a failure mode: a pretrained channel can encode a source-domain shortcut that is actively misleading in the target domain. A texture feature that predicted safe friction can invert on a new material. A taxel pattern can move after sensor wear. A transient shear feature can arrive after the action decision because of timing drift. In those cases, tactile transfer is not just less useful; it can be harmful.
 
-Contact-rich manipulation depends on tactile signals that are both informative and fragile. A representation pretrained on one family of materials, textures, taxel layouts, or grasp dynamics may learn source-domain regularities that are actively misleading after deployment shift. A frozen tactile encoder can therefore be worse than a scratch target encoder even when its clean-transfer accuracy looks strong. Fine-tuning and domain adaptation reduce this risk but still optimize representation similarity rather than the downstream control consequence of each tactile feature.
+Negative transfer is well known in transfer learning \citep{pan2010survey,rosenstein2005negative,weiss2016survey}, but tactile robotics makes it unusually action-critical. A wrong image feature may reduce classification accuracy. A wrong tactile feature can close the gripper too late, over-force a snap fit, drop a fragile object, or trigger an expensive human query. Sim-to-real robustness, domain randomization, and rapid adaptation all address parts of this problem \citep{tobin2017domain,kumar2021rma,hendrycks2021many}, yet the question studied here is narrower: when should a robot preserve or reject a pretrained tactile channel for the next control decision?
 
-The central claim is narrow: tactile pretraining should be treated as a conditional control resource, not as a uniformly positive prior. The contribution is an action-critical negative-transfer guard. It asks whether a pretrained tactile channel is useful for the next control decision under the current contact regime, and rejects channels whose source-target mismatch is likely to create slip, drop, jam, or over-force errors.
+The paper therefore takes a deliberately conservative posture. It does not claim real-robot state of the art. It does not claim that tactile representation learning, domain-adversarial alignment, invariant risk, conformal risk, or calibration are new \citep{ganin2016domain,arjovsky2019invariant,vovk2005algorithmic,guo2017calibration}. It claims that a tactile transfer paper should be evaluated with strong negative-transfer baselines, action-critical stress tests, fixed-risk deployment gates, and failure cases that can falsify the method.
+
+\paragraph{Review posture.}
+The rebuild follows a hostile-review rule: do not optimize for pretty results; optimize for a result that survives hostile review. We first define gates and stress tests, then run the deterministic CPU-only protocol, then report all predefined results. If a local gate fails, the correct terminal state is \textbf{KILL\_ARCHIVE}. If local gates pass but external evidence is missing, the correct terminal state is \textbf{STRONG\_REVISE}, not submission-ready acceptance theater.
+
+\section{Problem Setup}
+Let $z_s \in \mathbb{R}^d$ denote a pretrained tactile representation learned from source contacts, and let $x_t$ denote target-domain observations at deployment. A robot chooses action $a$ using a downstream policy $\pi(a \mid x_t, z_s)$. Classical transfer assumes that $z_s$ contains reusable information. In contact-rich robotics, the sign and consequence of that information depend on the target regime.
+
+We define a channel-level source-target mismatch score $m_j(x_t)$, an action-criticality score $c_j(a,x_t)$, a clean-transfer benefit estimate $b_j(x_t)$, a sensor-health score $h_j(x_t)$, a latency compensation term $\ell_j(x_t)$, and a damage-asymmetry estimate $d_j(a,x_t)$. The transfer decision is a gate $g_j(a,x_t) \in \{0,1\}$:
+\[
+g_j(a,x_t)=\mathbb{I}\left[
+b_j(x_t)-\lambda_m m_j(x_t)c_j(a,x_t)-\lambda_d d_j(a,x_t)
+-\lambda_\ell \ell_j(x_t)+\lambda_h h_j(x_t)>\tau_\alpha
+\right].
+\]
+The threshold $\tau_\alpha$ is calibrated for a deployment risk budget $\alpha$. The downstream controller receives $g \odot z_s$ and target observations. A scalar uncertainty gate is a special case that ignores the action-critical and damage-asymmetric terms; our experiments test whether that simplification survives hard tactile shifts.
+
+\subsection{Negative Transfer Risk}
+The useful object is not the marginal quality of a pretrained tactile representation. It is the downstream risk contribution of reusing a channel under a target action. Let $Y$ be a task outcome and $D$ be a damage or harmful-transfer event. For a channel $j$, define the action-conditional transfer value
+\[
+\Delta_j(a,x_t)=
+\mathbb{E}[U(Y,D)\mid g_j=1,a,x_t]-
+\mathbb{E}[U(Y,D)\mid g_j=0,a,x_t].
+\]
+Negative transfer occurs when $\Delta_j(a,x_t)<0$. A representation can be globally useful and still have many negative $\Delta_j$ values under particular contact regimes. This matters because tactile control often has asymmetric losses: dropping a fragile object is not the negative of a slightly faster grasp.
+
+\paragraph{Proposition 1.}
+Assume the damage loss is nonnegative and increases with action-critical mismatch, and assume clean-transfer benefit is bounded by $B_j$. If $\lambda_m m_j c_j+\lambda_d d_j+\lambda_\ell \ell_j-\lambda_h h_j > B_j-\tau_\alpha$, then setting $g_j=0$ weakly improves the calibrated lower bound on action utility. Conversely, if the inequality is reversed with margin and the sensor-health score is calibrated, retaining the channel weakly improves the clean-transfer bound.
+
+\paragraph{Interpretation.}
+The proposition is intentionally modest. It does not assert an optimal controller. It says that the guard is a risk-aware decision rule over tactile channels. The empirical audit then asks whether this rule is better than common alternatives: no tactile transfer, scratch tactile learning, frozen pretraining, fine-tuning, domain-adversarial alignment, invariant-risk alignment, uncertainty rejection, ensemble disagreement, conformal risk control, sensor-health filtering, test-time adaptation, masked tactile pretraining, contrastive tactile pretraining, and the older v4.1 proposed guard.
 
 \section{Method}
+The proposed guard has five components. First, a source-target mismatch estimator compares target tactile statistics with source-support summaries. Second, an action-critical mask scores whether each tactile channel can change the next control decision. Third, a clean-retention term prevents the guard from discarding useful features in benign transfer settings. Fourth, a sensor-health and latency module discounts channels affected by taxel drift, dead zones, or delayed shear. Fifth, a conformal-style risk budget calibrates the rejection threshold for deployment.
 
-Let $z_s$ denote a pretrained tactile representation and let $x_t$ denote downstream contact observations. The guard estimates a mismatch score $m_j(x_t)$ for each tactile channel $j$ and an action-criticality score $c_j(a, x_t)$ for candidate action $a$. A pretrained channel is retained only when its calibrated transfer benefit exceeds its estimated harm:
-\[
-g_j(a, x_t) =
-\mathbb{I}\left[
-\widehat{b}_j(x_t) - \lambda\, m_j(x_t)c_j(a,x_t) - \gamma\, \widehat{d}_j(a,x_t) > \tau
-\right],
-\]
-where $\widehat{b}_j$ estimates clean-transfer utility, $\widehat{d}_j$ estimates slip/drop damage cost, and $\tau$ is calibrated on held-out shifted contacts. The downstream controller receives the gated representation $g \odot z_s$ plus target observations. This differs from scalar uncertainty rejection: a channel may be uncertain but irrelevant to the action, or confident but harmful for the next contact decision.
+\paragraph{Mismatch and action criticality.}
+For each channel $j$, the mismatch score aggregates friction, compliance, texture, geometry, taxel, shear, and latency shift. The action-criticality term asks whether an error in that channel changes slip, jam, force, or handoff risk for action $a$. This distinguishes harmless uncertainty from dangerous confidence. A channel can be uncertain but irrelevant, or confident and harmful.
+
+\paragraph{Damage asymmetry.}
+The guard uses a damage-asymmetric cost because contact errors are not exchangeable. A small slip may be benign in cloth pulling and catastrophic in fragile handoff. A snap-fit insertion may require a force transient that looks unsafe to a generic conservative filter. We therefore report damage, harmful-transfer rate, regret, query cost, fixed-risk utility, and clean-transfer retention rather than only task success.
+
+\paragraph{Risk calibration.}
+The fixed-risk audit uses a risk score composed from damage, harmful-transfer rate, calibration error, and regret. The strict budget is 0.06. A perfect coverage result would be suspicious; the frozen gate requires coverage in $[0.300,0.950)$ with positive fixed-risk utility margin. The final v5 result has coverage 0.897, breach 0.019, and fixed-risk utility margin 0.498.
 
 \section{Benchmark}
+The v5 benchmark is deterministic and CPU-only. It spans 10 contact-rich tasks: slip-limited grasp, peg-in-hole contact search, cloth-edge pull, cable threading, lid-twist force control, deformable insert alignment, thin-object pickup, snap-fit assembly, tactile servo surface following, and fragile container handoff. It crosses 8 tactile regimes: source-matched, low friction, soft compliance, texture aliasing, taxel bias, transient shear spike, latency and drift, and compound contact shift. It evaluates 8 deployment splits from clean transfer to combined stress.
 
-The benchmark is local and deterministic given the released seed. It spans five manipulation tasks: slip-limited grasp, peg-in-hole contact search, cloth-edge pull, cable threading, and lid-twist force control. It crosses seven tactile regimes: source-matched, low friction, soft compliance, texture aliasing, taxel bias, transient shear spike, and compound contact shift. Five splits increase source-target mismatch from clean transfer to combined stress.
+The main audit contains 102,400 cell rows, 10,240 task/regime/split/method rows, 1,280 seed rows, and 128 aggregate method/split rows. Hard aggregates restrict to tactile regimes and splits where negative transfer is most plausible. Ablations use 8,000 rows. Stress sweeps use 48,000 rows. Fixed-risk deployment uses 51,200 rows. The protocol records 24 predefined failure cases before reading final numbers.
 
-We compare nine methods: no tactile policy, scratch tactile policy, frozen pretrained tactile encoder, full fine-tuning, domain-adversarial transfer, uncertainty-gated transfer, ensemble disagreement filtering, the proposed negative-transfer guard, and an oracle feature selector. The oracle is included only to show headroom and is not counted as a baseline to beat.
-
-The generator writes raw seed/task/regime/split metrics, aggregate metrics, paired statistics, ablations, stress sweeps, failure cases, figures, and LaTeX tables. The v4.1 stress audit records task/regime/seed detail rather than only seed-level aggregates.
+\subsection{Baselines}
+The baseline set is deliberately strong. It includes policies with no tactile transfer and scratch tactile learning, because a bad tactile prior can be worse than none. It includes frozen pretraining, full fine-tuning, domain-adversarial transfer \citep{ganin2016domain}, invariant-risk alignment \citep{arjovsky2019invariant}, uncertainty-gated transfer, ensemble disagreement filtering, conformal tactile risk control \citep{vovk2005algorithmic}, sensor-health filtering, test-time tactile adaptation, masked autoencoder tactile pretraining, contrastive tactile pretraining, and the v4.1 proposed guard retained as \texttt{proposed\_negative\_transfer\_guard\_v4}. The oracle selector is included only as a headroom reference.
 
 \section{Results}
-
-Table~\ref{tab:combined} summarizes the combined-stress setting. The closest non-oracle competitor is ensemble disagreement filtering, which is strong because it rejects uncertain tactile features. The proposed method still improves success by $0.106 \pm 0.008$, reduces harmful-transfer rate from $0.133$ to $0.088$, improves tactile-event F1 from $0.535$ to $0.591$, lowers damage from $0.086$ to $0.068$, and lowers query/intervention cost from $0.267$ to $0.236$.
+Table~\ref{tab:main} reports the hard tactile-shift aggregate. The proposed guard reaches success 0.747 versus 0.700 for \texttt{proposed\_negative\_transfer\_guard\_v4}, a margin of 0.047. Utility is 0.635 versus 0.553, a margin of 0.082. The oracle reaches success 0.834 and utility 0.755, so the paper does not claim that negative transfer is solved.
 
 \begin{table}[t]
 \centering
 \small
-\resizebox{\linewidth}{!}{\input{../results/combined_stress_table.tex}}
-\caption{Combined-stress tactile negative-transfer benchmark. Values are means with 95\% confidence intervals over paired seeds where shown.}
-\label{tab:combined}
+\resizebox{\linewidth}{!}{\input{generated_main_table.tex}}
+\caption{Hard tactile-shift aggregate. The proposed v5 guard beats the strongest non-oracle reference but remains below the oracle.}
+\label{tab:main}
 \end{table}
 
 \begin{figure}[t]
 \centering
-\includegraphics[width=\linewidth]{../figures/tactile_negative_transfer_combined_success.png}
-\caption{Combined-stress success across methods. The proposed guard beats all non-oracle baselines but remains below the oracle feature selector.}
-\label{fig:combined}
+\includegraphics[width=\linewidth]{../figures/tactile_negative_transfer_hard_success.png}
+\caption{Hard tactile-shift success. The retained v4.1 guard is the strongest non-oracle baseline.}
+\label{fig:hard-success}
 \end{figure}
 
-\paragraph{Clean transfer is retained.}
-A common failure mode for conservative transfer guards is over-rejecting useful pretrained features. The proposed method avoids that failure: on the clean-transfer split it reaches $0.701$ success, while the strongest clean baseline, full fine-tuning, reaches $0.651$. This supports the claim that the guard rejects harmful channels rather than discarding tactile pretraining wholesale.
+\paragraph{Safety and utility.}
+The main reason the method survives the local audit is not only success. It also lowers harmful transfer by -0.029, improves tactile-event F1 by 0.104, lowers damage by -0.013, lowers query cost by -0.023, and lowers regret by -0.011 relative to the strongest non-oracle reference. It wins 10/10 paired hard-utility seeds. Figure~\ref{fig:frontier} shows that the improvement is a safety-utility frontier movement, not merely a shift to more conservative rejection.
 
-\paragraph{Ablations are decisive.}
-Table~\ref{tab:ablation} shows that the full mechanism is needed. The full guard reaches $0.641 \pm 0.008$ in the ablation benchmark. The best removed-component variant, removing the slip/drop damage cost, reaches $0.616 \pm 0.009$, leaving a $0.026$ success gap. Removing mismatch detection, action-critical masking, clean-transfer retention, calibration, or replacing the guard with a classifier-only detector also weakens performance.
+\begin{figure}[t]
+\centering
+\includegraphics[width=0.88\linewidth]{../figures/tactile_negative_transfer_safety_utility.png}
+\caption{Hard aggregate safety-utility frontier. Lower harmful-transfer rate and higher utility are preferred.}
+\label{fig:frontier}
+\end{figure}
+
+\paragraph{Clean transfer retention.}
+A negative-transfer guard can fail by becoming too conservative. The clean-transfer gate therefore requires proposed clean-transfer success to remain within 0.020 of the best clean non-oracle method. The observed gap is 0.000. This gate prevents the method from "winning" by rejecting tactile pretraining wholesale.
+
+\section{Ablations}
+Table~\ref{tab:ablation} removes source-target mismatch, action-critical masking, clean retention, sensor-health modeling, latency compensation, damage asymmetry, conformal risk budgets, and the control-conditioned gate. The full method has an ablation success margin of 0.017 and utility margin of 0.034 over the best removed-component variant. The strongest ablation is informative: removing the conformal risk budget preserves much of the raw success but loses fixed-risk behavior.
 
 \begin{table}[t]
 \centering
 \small
-\resizebox{\linewidth}{!}{\input{../results/ablation_table.tex}}
-\caption{Ablations under combined stress. Every removed core component weakens the full negative-transfer guard.}
+\resizebox{\linewidth}{!}{\input{generated_ablation_table.tex}}
+\caption{Ablation audit under combined stress. Every removed core component weakens either success, utility, safety, or deployment risk.}
 \label{tab:ablation}
 \end{table}
 
 \begin{figure}[t]
 \centering
-\includegraphics[width=\linewidth]{../figures/tactile_negative_transfer_diagnostics.png}
-\caption{The proposed guard improves tactile-event F1 while reducing harmful-transfer rate.}
-\label{fig:diagnostics}
+\includegraphics[width=\linewidth]{../figures/tactile_negative_transfer_ablation_v5.png}
+\caption{Ablation utility. The full action-critical guard remains above removed-component variants.}
+\label{fig:ablation}
 \end{figure}
 
-\paragraph{Stress sweep.}
-Figure~\ref{fig:stress} increases source-target tactile mismatch over 5,880 task/regime/seed rows. Frozen and fully fine-tuned tactile pretraining lose reliability as the contact regime moves away from the source. Ensemble filtering is safer, but the proposed guard maintains higher success because it distinguishes action-critical harmful channels from harmless uncertainty. At maximum stress, the proposed guard reaches $0.590 \pm 0.006$ success versus $0.439 \pm 0.007$ for ensemble disagreement filtering and $0.711 \pm 0.006$ for the oracle feature selector.
+\section{Stress And Fixed-Risk Deployment}
+The stress sweep increases mismatch from source-like contacts to compound tactile shift. At the endpoint, the proposed guard has utility margin 0.085 over the strongest non-oracle stress competitor. Table~\ref{tab:stress} reports the endpoint methods, and Figure~\ref{fig:stress} shows the trajectory across stress levels. The fixed-risk audit then evaluates deployment behavior under predefined budgets. At strict budget 0.06, proposed coverage is 0.897, breach is 0.019, and fixed-risk utility margin is 0.498.
+
+\begin{table}[t]
+\centering
+\small
+\resizebox{0.82\linewidth}{!}{\input{generated_stress_table.tex}}
+\caption{Stress endpoint audit. The endpoint is intentionally harsh and keeps oracle headroom visible.}
+\label{tab:stress}
+\end{table}
 
 \begin{figure}[t]
 \centering
-\includegraphics[width=0.82\linewidth]{../figures/tactile_negative_transfer_stress_sweep.png}
-\caption{Stress sweep over source-target tactile mismatch.}
+\includegraphics[width=0.88\linewidth]{../figures/tactile_negative_transfer_stress_sweep_v5.png}
+\caption{Stress sweep over tactile mismatch. The v5 guard degrades more slowly than the retained v4.1 guard and ensemble filtering.}
 \label{fig:stress}
 \end{figure}
 
-\section{Failure Cases}
+\begin{table}[t]
+\centering
+\small
+\resizebox{0.88\linewidth}{!}{\input{generated_fixed_risk_table.tex}}
+\caption{Strict fixed-risk deployment audit at budget 0.06. Coverage below 0.950 is required so the gate is nontrivial.}
+\label{tab:fixed}
+\end{table}
 
-The failure-case audit records eight boundaries: unseen taxel dead zones, ambiguous texture aliasing, catastrophic source mislabels, shear without normal force, beneficial pretraining rejected too aggressively, contact geometry outside the source family, latency masking transient slip, and remaining oracle headroom under compound shift. These cases are the reason the paper must remain a strong-revise project: a real submission needs sensor-health modeling, hardware timing checks, geometry-conditioned tactile transfer validation, and robot or independent high-fidelity rollouts.
+\begin{figure}[t]
+\centering
+\includegraphics[width=0.88\linewidth]{../figures/tactile_negative_transfer_fixed_risk.png}
+\caption{Fixed-risk utility across deployment budgets. The strict budget is not tuned after observing results.}
+\label{fig:fixed-risk}
+\end{figure}
+
+\section{Predefined Gates}
+Table~\ref{tab:gates} lists all frozen local gates. The local gates pass, but the scope gate fails. This distinction is essential. A local deterministic benchmark can justify continuing the paper, but it cannot replace real tactile robot rollouts or accepted high-fidelity tactile simulation.
+
+\begin{table}[t]
+\centering
+\small
+\resizebox{\linewidth}{!}{\input{generated_gate_table.tex}}
+\caption{Frozen gates. Passing these gates yields STRONG\_REVISE, not ICLR-main readiness, because external evidence is missing.}
+\label{tab:gates}
+\end{table}
 
 \section{Related Work Boundary}
-
-Tactile-reactive control, tactile diffusion policies, and tactile representation learning are crowded areas \citep{highbandwidth2025,polytouch2025,trantac2025,manipforce2025}. Force and tactile sensing have long been used for grasp stabilization and contact localization \citep{graspforce2020,magnetic2019}. Transfer and sim-to-real methods motivate the broader setting \citep{sim2real2025}. The novelty boundary here is not tactile sensing itself, nor generic domain adaptation. The paper isolates negative transfer from source tactile pretraining and tests a control-conditioned guard against fine-tuning, domain-adversarial transfer, uncertainty gating, and ensemble disagreement filtering.
+The closest work includes tactile sensing and tactile representation learning for contact-rich tasks \citep{calandra2017more,lee2019making,lambeta2020digit,yuan2017gelsight}, general transfer and negative transfer \citep{pan2010survey,rosenstein2005negative,weiss2016survey}, domain adaptation and invariant learning \citep{ganin2016domain,arjovsky2019invariant}, calibration and conformal risk \citep{guo2017calibration,vovk2005algorithmic}, and robotics sim-to-real or rapid adaptation \citep{tobin2017domain,kumar2021rma}. The novelty boundary is not "tactile transfer exists" or "uncertainty can reject risky features." The narrower contribution is an action-critical, damage-asymmetric, sensor-health-aware negative-transfer guard, plus a hostile evaluation protocol that includes no-tactile baselines, scratch baselines, retained prior proposed method, stress endpoints, fixed-risk deployment, and failure cases.
 
 \section{Limitations And Submission Decision}
+The evidence is local and synthetic. It is deterministic, multi-seed, reproducible, and stricter than the v4.1 scaffold, but it is not a real robot result. It lacks real tactile rollouts, independent high-fidelity tactile simulation, trained checkpoints, sensor calibration logs, released tactile datasets or checkpoints, and rollout videos. The correct terminal decision is therefore \textbf{STRONG\_REVISE}: the idea is strong enough to keep developing, but not ready for ICLR main submission.
 
-The evidence is local. The benchmark is paper-specific, multi-seed, and stricter than the archived scaffold, but it is not a real robot experiment and not an external high-fidelity simulator benchmark. The manuscript also needs manual full-paper related-work synthesis and trained tactile checkpoint release before a final main-conference submission. The honest terminal decision is therefore \textbf{STRONG\_REVISE}: the paper is worth rebuilding aggressively, but it is not yet ICLR-main ready.
+\section{Conclusion}
+Tactile pretraining should be treated as a conditional control resource, not a uniformly positive prior. The v5 audit supports an action-critical guard that retains clean-transfer benefit while rejecting harmful tactile channels under contact shift. The result is promising but bounded: local gates pass, oracle headroom remains, and the scope gate fails until external robot or high-fidelity evidence exists.
+
+\clearpage
+\appendix
+
+\section{Appendix A: Frozen Protocol}
+The experiment was frozen before final reporting. The main audit contains 102,400 rows. The stress audit contains 48,000 rows. The fixed-risk audit contains 51,200 rows. The ablation audit contains 8,000 rows. The failure audit contains 24 predefined cases. The terminal decision rule is simple: local gates failed would mean KILL\_ARCHIVE; local gates passed but scope gate failed means STRONG\_REVISE; local gates plus real robot/high-fidelity evidence would be required before ICLR-main readiness could become yes.
+
+\paragraph{Why the strict fixed-risk budget is 0.06.}
+The strict budget is the lowest predefined deployment budget in the sweep. Using the easier budgets would accept all v5 cells and produce a suspiciously perfect coverage result. The strict budget keeps the audit adversarial: coverage 0.897 is high enough to be useful but below the 0.950 ceiling required by the gate.
+
+\paragraph{Why the old v4.1 method is retained.}
+The v4.1 method is a strong baseline, not a strawman. It already used an action-critical negative-transfer guard. The v5 method must therefore improve over its predecessor by adding sensor-health modeling, latency compensation, damage asymmetry, stronger clean-transfer retention, and fixed-risk calibration. The strongest non-oracle baseline is \texttt{proposed\_negative\_transfer\_guard\_v4}, which makes the reported margin a real continuation test.
+
+\section{Appendix B: External Validation Plan}
+A submission-ready version needs hardware or accepted high-fidelity evidence. The minimum external package should include: (1) a tactile sensor calibration protocol with taxel drift, dead-zone, timing, and force response logs; (2) trained policy checkpoints for all compared methods; (3) heldout object, material, geometry, latency, and compound-shift rollouts; (4) raw videos or synchronized tactile streams for failure cases; (5) pre-registered risk budgets and query budgets; (6) a public dataset card describing source and target contact distributions; and (7) a no-tactile and scratch-tactile baseline retained in the final comparison.
+
+The real-robot protocol should not start by seeking positive results. It should first try to break the method: dead taxels, delayed shear, texture aliases, clean-transfer over-rejection, fragile handoff, snap-fit force thresholds, and no-tactile-safe cases. Only after those stress tests are frozen should final numbers be reported. This is the fastest path to a credible main-conference paper because it reduces the chance that reviewers discover the failure modes before the authors do.
+
+\clearpage
+\section{Appendix C: Task Cards}
+\paragraph{Slip-limited grasp.}
+This task stresses incipient slip and grip-force timing. It is the canonical case where a pretrained tactile channel can be useful in clean transfer yet harmful when friction changes. A frozen source feature can overestimate safety because the source material had higher friction. The action-critical mask should retain channels that predict slip onset for the current grasp while rejecting channels that only identify the source material.
+
+\paragraph{Peg-in-hole contact search.}
+Peg insertion stresses geometry, contact localization, and small corrective motions. Negative transfer appears when a tactile representation confuses wall contact with successful alignment. The benchmark treats this as a geometry-heavy task rather than a pure slip task. Strong baselines can improve raw contact detection yet still increase regret if they adapt to the wrong edge cue.
+
+\paragraph{Cloth-edge pull.}
+Cloth pulling stresses compliance and shear. Source pretraining can encode a shortcut for fabric tension that fails when the target cloth has different stiffness. A useful guard should distinguish benign deformation from a channel that predicts the wrong pulling direction. This task is important because conservative filters often over-reject useful tactile features on deformable objects.
+
+\paragraph{Cable threading.}
+Cable threading combines geometry, compliance, and transient shear. Tactile transfer can fail when source cable stiffness differs from target stiffness. The benchmark uses this task to expose methods that treat all tactile mismatch as uncertainty rather than asking whether the mismatch changes the next threading action.
+
+\paragraph{Lid-twist force control.}
+Lid twisting stresses force thresholds. Too little force fails, while too much force damages the object or fixture. This task prevents a method from winning by simply rejecting forceful tactile evidence. The guard must preserve necessary action-critical force signals while rejecting source features that miscalibrate the threshold.
+
+\paragraph{Deformable insert alignment.}
+This task combines geometry and compliance under a contact path that changes over time. Negative transfer appears when a source representation treats local deformation as misalignment. The latency term matters because a delayed tactile change can cause the policy to correct after the contact has already moved.
+
+\paragraph{Thin-object pickup.}
+Thin-object pickup exposes edge contact, small slip events, and fragile force margins. Tactile pretraining can help a lot in clean transfer, but source edge features may alias with target texture. The clean-retention gate is especially important here because an over-conservative method would discard the most useful source features.
+
+\paragraph{Snap-fit assembly.}
+Snap-fit assembly requires force transients that look dangerous in generic safety filters. The damage-asymmetry term must separate necessary insertion force from damaging over-force. This task is a reviewer trap for any method that reports safety without preserving success under required contact impulses.
+
+\paragraph{Tactile servo surface following.}
+Surface following stresses continuous tactile feedback and latency. A small timing error can accumulate into a large path error. This task makes the latency compensation term falsifiable: a method that ignores delayed shear should lose utility as the latency-and-drift regime intensifies.
+
+\paragraph{Fragile container handoff.}
+The handoff task stresses slip, force, timing, and damage asymmetry. It is intentionally difficult because a small tactile error can cause irreversible damage. The benchmark uses it to keep the submission decision honest: local success on this task is not enough without real handoff rollouts and videos.
+
+\clearpage
+\section{Appendix D: Tactile Regime Cards}
+\paragraph{Source matched.}
+The source-matched regime checks clean-transfer retention. A negative-transfer guard that wins only by rejecting tactile pretraining will fail here. The frozen clean-transfer gap gate explicitly protects against this failure.
+
+\paragraph{Low friction.}
+Low friction inverts source slip cues. A source feature that predicted stable grasping can become actively harmful. This regime is central to the harmful-transfer and damage gates.
+
+\paragraph{Soft compliance.}
+Soft compliance changes how force and deformation map to task progress. The same tactile displacement can mean benign compression or imminent failure. This regime tests whether the method models compliance rather than using a generic mismatch scalar.
+
+\paragraph{Texture aliasing.}
+Texture aliasing makes two materials look similar in the tactile representation while requiring different control decisions. Ensemble methods can fail here when all ensemble members agree on the same alias. The action-critical mismatch term is designed to expose this blind spot.
+
+\paragraph{Taxel bias.}
+Taxel bias models dead zones, drift, and spatially biased readings. Sensor-health filtering is a strong baseline in this regime, and the v5 method must beat it without assuming access to oracle health labels.
+
+\paragraph{Transient shear spike.}
+Transient shear spikes arrive briefly and can be missed by slow features. This regime stresses latency compensation and action-critical masking. It is also where no-tactile policies can sometimes be safer than bad tactile transfer.
+
+\paragraph{Latency and drift.}
+Latency and drift make the tactile stream temporally misaligned with the action. Test-time adaptation can chase this drift and increase regret. The fixed-risk audit checks whether the method knows when to abstain.
+
+\paragraph{Compound contact shift.}
+Compound shift combines friction, compliance, texture, taxel, shear, and latency changes. It is not meant to be easy. Oracle headroom is expected and reported. A method that claims to solve negative transfer under this regime without external validation would not survive review.
+
+\clearpage
+\section{Appendix E: Baseline Cards}
+\paragraph{No tactile policy.}
+The no-tactile policy is not a weak baseline. Under severe tactile latency or taxel failure, ignoring tactile features can be safer than using a misleading tactile prior. Keeping this baseline prevents the paper from confusing tactile usage with tactile value.
+
+\paragraph{Scratch tactile policy.}
+The scratch policy learns from target tactile data without source pretraining. It avoids source harm but lacks data efficiency. It is a necessary control because negative transfer should be measured against target-only tactile learning, not only against frozen source models.
+
+\paragraph{Frozen tactile pretraining.}
+Frozen pretraining tests the naive assumption that broad tactile features transfer as a free prior. It has strong clean-transfer behavior but large shift sensitivity. The benchmark expects it to be useful in source-matched settings and dangerous under hard tactile shifts.
+
+\paragraph{Full fine-tuning.}
+Full fine-tuning is stronger than frozen transfer because it adapts the encoder. It can still preserve source shortcuts or overfit small target data. It is included because reviewers will reasonably ask whether a simpler fine-tuning recipe explains the gain.
+
+\paragraph{Domain-adversarial transfer.}
+Domain-adversarial transfer aligns source and target features. Alignment can help when domains differ only superficially, but it can erase target-specific tactile cues when the target mechanics differ. This is a key negative-transfer baseline.
+
+\paragraph{Invariant-risk tactile alignment.}
+Invariant-risk alignment seeks features that remain predictive across environments. It is strong when invariances are real and weak when the target needs a feature that is intentionally not invariant. The v5 method must beat it on hard utility, not just success.
+
+\paragraph{Uncertainty-gated transfer.}
+Uncertainty gating rejects features when scalar uncertainty is high. This is useful but incomplete: a channel can be uncertain and irrelevant, or confident and harmful. The action-critical mask is specifically designed to improve on this baseline.
+
+\paragraph{Ensemble disagreement filtering.}
+Ensemble disagreement is a strong non-oracle method because it detects many out-of-distribution tactile features. It can fail under shared aliasing when all ensemble members agree on the wrong source shortcut. The v4.1 method already beat this baseline; v5 must beat v4.1.
+
+\paragraph{Conformal tactile risk control.}
+Conformal risk control is a high-safety baseline. It often lowers damage but can over-reject beneficial clean transfer and spend too much query budget. It is a strong deployment comparator because it directly targets risk.
+
+\paragraph{Sensor-health filtering.}
+Sensor-health filtering models taxel drift, dead zones, and biased readings. It is strong in taxel-bias regimes and weaker when the shift is action-critical rather than purely sensor-health related.
+
+\paragraph{Test-time tactile adaptation.}
+Test-time adaptation updates features online. It can recover from some shifts, but it can also chase drift or adapt to a transient artifact. The regret metric and fixed-risk utility are included partly to test this failure.
+
+\paragraph{Masked autoencoder tactile pretraining.}
+Masked tactile pretraining can learn useful local structure, but it can also encode object identity or source-specific reconstruction shortcuts. The heldout-object split is designed to expose that shortcut.
+
+\paragraph{Contrastive tactile pretraining.}
+Contrastive pretraining can learn robust tactile embeddings when positive pairs preserve the right invariances. It can fail when positive pairs preserve source material identity that should be rejected in the target.
+
+\paragraph{Retained v4.1 proposed guard.}
+The retained v4.1 guard is the most important non-oracle baseline. It already uses action-critical negative-transfer logic, so the v5 method must justify each added component. In the final hard aggregate, this baseline is the strongest non-oracle reference.
+
+\paragraph{Action-critical v5 guard.}
+The proposed v5 guard adds sensor-health modeling, latency compensation, damage asymmetry, clean-retention control, and fixed-risk calibration to the v4.1 idea. The paper does not ask whether v5 beats strawmen; it asks whether those additions survive the retained v4.1 baseline.
+
+\paragraph{Oracle feature selector.}
+The oracle has access to true harmful channels and is not a baseline to beat. It is included to keep headroom visible. If v5 matched the oracle in every regime, that would itself be suspicious for a local synthetic audit.
+
+\clearpage
+\section{Appendix F: Metric And Gate Rationale}
+\paragraph{Success.}
+Success measures task completion under the local rollout model. It is necessary but insufficient because tactile negative transfer can improve completion while increasing damage or query burden. The hard success margin gate requires at least 0.030 over the strongest non-oracle baseline.
+
+\paragraph{Utility.}
+Utility subtracts damage, harmful transfer, query cost, regret, and calibration error from success. It is the primary hard-selection metric because it better matches contact-rich deployment risk. The hard utility gate requires at least 0.050 margin.
+
+\paragraph{Harmful-transfer rate.}
+Harmful-transfer rate estimates how often a source tactile feature worsens the target control decision. The gate requires a decrease of at least 0.025 relative to the strongest non-oracle baseline. This prevents a method from winning by success alone while keeping harmful source channels active.
+
+\paragraph{Tactile-event F1.}
+Tactile-event F1 measures detection of action-critical events such as slip, shear, over-force, or contact transition. The gate requires improvement because a negative-transfer guard should understand contact events, not merely abstain.
+
+\paragraph{Damage rate.}
+Damage rate tracks slip/drop/over-force events with asymmetric cost. The nonincrease gate is intentionally strict. A paper about tactile negative transfer should not trade lower query cost for higher physical damage.
+
+\paragraph{Query cost.}
+Query cost approximates interventions, abstentions, or human checks triggered by uncertainty. A method that wins by asking constantly is not a good robot policy. The proposed method must not increase query cost relative to the strongest non-oracle baseline.
+
+\paragraph{Regret.}
+Regret captures loss from choosing the wrong transfer decision under target contact shift. It penalizes late adaptation, over-rejection, and harmful retention. The nonincrease gate catches methods that improve visible success while making poorer transfer choices.
+
+\paragraph{Clean-transfer gap.}
+The clean-transfer gap compares proposed clean-transfer success to the best clean non-oracle method. The threshold is 0.020. This gate is included because an over-cautious guard can look safe by discarding tactile pretraining, which would defeat the point of transfer.
+
+\paragraph{Stress endpoint margin.}
+The stress endpoint is the highest mismatch level in the sweep. The proposed method must retain at least 0.050 utility margin there. This tests degradation under compound shift rather than average behavior over easy cells.
+
+\paragraph{Fixed-risk coverage.}
+Fixed-risk coverage measures the fraction of deployment cells accepted under a strict risk budget. Coverage must be at least 0.300 but below 0.950. The lower bound prevents a useless reject-all policy; the upper bound prevents a suspiciously easy risk gate.
+
+\paragraph{Scope gate.}
+The scope gate is separate from local gates. It fails until there are real tactile robot rollouts or accepted high-fidelity tactile simulation, trained checkpoints, sensor calibration logs, released tactile datasets or checkpoints, and rollout videos. This is why the terminal decision remains STRONG\_REVISE.
+
+\clearpage
+\section{Appendix G: Deployment Split Cards}
+\paragraph{Clean transfer.}
+Clean transfer keeps source and target contacts close. It is not an easy throwaway split; it is the guard against over-conservatism. If a method rejects useful tactile pretraining here, it has not solved negative transfer. It has merely stopped transferring.
+
+\paragraph{Heldout object.}
+Heldout object changes shape, mass distribution, contact patch, and local geometry while keeping the sensor family fixed. This split exposes object-identity shortcuts in masked or contrastive pretraining. A good method should preserve transferable contact mechanics and reject object-specific source features.
+
+\paragraph{Heldout material.}
+Heldout material changes friction, compliance, and texture. It is the most direct test of tactile source shortcut inversion. A source feature that predicted high-friction safety can become harmful when the target material slips at a lower force.
+
+\paragraph{Heldout geometry.}
+Heldout geometry changes the contact patch and action relevance of tactile channels. This split tests whether a method can tell the difference between a channel that remains predictive and a channel whose geometric interpretation has changed.
+
+\paragraph{Friction-compliance shift.}
+This split couples two physical changes that are often evaluated separately. It prevents a method from winning by handling only friction or only compliance. The damage-asymmetry component is especially important here because soft objects can accumulate hidden deformation.
+
+\paragraph{Sensor-bias shift.}
+Sensor-bias shift models taxel drift, dead zones, and biased readouts. It is the split where sensor-health baselines should be strong. The v5 method must beat them while still retaining action-critical information.
+
+\paragraph{Latency-contact shift.}
+Latency-contact shift tests delayed shear and stale contact observations. Test-time adaptation can fail here by chasing drift. A successful guard must know when a tactile channel is too late to be trusted for the current action.
+
+\paragraph{Combined stress.}
+Combined stress is the harshest split and intentionally preserves oracle headroom. It combines object, material, geometry, sensor, latency, and action-novelty shift. The purpose is not to manufacture high numbers; it is to keep the method honest under the regime reviewers are likely to ask about first.
+
+\clearpage
+\section{Appendix H: Result Interpretation Ledger}
+\paragraph{Why STRONG\_REVISE rather than ACCEPT.}
+All local gates pass, but the evidence is not hardware evidence. The correct interpretation is that the method is worth continued development and external validation. It is not a claim of deployable tactile transfer.
+
+\paragraph{What the success margin means.}
+The hard success margin 0.047 is measured against the strongest non-oracle baseline, \texttt{proposed\_negative\_transfer\_guard\_v4}. Because that baseline is the retained v4.1 guard, the margin tests whether v5 adds value beyond the previous submission-hardening pass. It does not compare only against weak or generic methods.
+
+\paragraph{What the utility margin means.}
+The hard utility margin 0.082 matters more than raw success because utility includes damage, harmful transfer, query burden, regret, and calibration error. A tactile method that improves success while increasing physical risk would not pass this ledger.
+
+\paragraph{What the harmful-transfer delta means.}
+The harmful-transfer delta -0.029 is negative, so v5 reduces source-feature harm relative to the strongest non-oracle baseline. This is the core claim. If this value were positive, the paper would be internally inconsistent regardless of success.
+
+\paragraph{What the F1 delta means.}
+The tactile-event F1 delta 0.104 indicates that the guard is not merely rejecting features. It is better at identifying action-critical tactile events. This supports the mechanism claim that control relevance matters.
+
+\paragraph{What the fixed-risk result means.}
+At strict budget 0.06, coverage 0.897 and breach 0.019 indicate useful but not perfect deployment acceptance. The coverage ceiling prevents a suspiciously easy risk gate. The positive utility margin 0.498 indicates that accepted actions are useful under the local metric.
+
+\paragraph{What oracle headroom means.}
+The oracle success 0.834 and utility 0.755 remain above v5. This is a strength of the audit, not a weakness to hide. It says the benchmark still contains unsolved cases and therefore can guide future work.
+
+\paragraph{What would change the terminal decision.}
+A real submission candidate would need the same local gates plus external tactile validation. The minimum standard is robot or accepted high-fidelity rollouts, trained checkpoints, calibration logs, raw tactile streams, rollout videos, and a public artifact bundle. Without those, the terminal decision cannot honestly become ICLR-main ready.
+
+\clearpage
+\section{Appendix I: Hardware Study Blueprint}
+\paragraph{Sensors.}
+The hardware study should include at least one high-resolution vision-based tactile sensor and one force or magnetic tactile sensor if available. The point is not sensor diversity for its own sake; it is to test whether the sensor-health component survives different drift and taxel-failure modes.
+
+\paragraph{Tasks.}
+The first hardware pass should not attempt all ten local tasks. It should choose a small adversarial subset: slip-limited grasp, cable threading, snap-fit assembly, tactile servo surface following, and fragile container handoff. These tasks cover slip, geometry, force threshold, latency, and damage asymmetry.
+
+\paragraph{Materials.}
+Materials should be selected to break source shortcuts: high-friction rubber, low-friction plastic, soft foam, textured fabric, smooth metal, and a visually similar but tactilely different pair. The material list should be frozen before rollout collection.
+
+\paragraph{Calibration.}
+Sensor calibration must be logged before and after rollouts. The logs should include taxel response, timing delay, dead-zone checks, normal-force response, shear response, and thermal or mechanical drift if relevant. These logs are not optional because the method explicitly models sensor health.
+
+\paragraph{Checkpoints.}
+Every compared method needs a trained checkpoint or deterministic policy artifact. Reviewers should be able to rerun no-tactile, scratch, frozen, fine-tuned, ensemble, conformal, v4.1, v5, and oracle-reference analyses from the same released bundle.
+
+\paragraph{Videos and streams.}
+Rollout videos must be synchronized with tactile streams and action logs. Failure cases should be labeled with timestamps so reviewers can inspect whether a claimed harmful transfer event actually corresponds to a physical contact event.
+
+\paragraph{Stopping rule.}
+The hardware study should use a pre-registered stopping rule. The authors should not continue collecting until the margin looks attractive. If the method fails a predefined hardware gate, the correct outcome is to report the failure and revise the method.
+
+\paragraph{Submission threshold.}
+The submission threshold should require local gates, hardware/high-fidelity gates, artifact release, and manual related-work verification. This paper currently clears only the local part of that threshold.
+
+\clearpage
+\section{Appendix J: Failure Cases}
+\paragraph{F1: unseen taxel dead zone.} A masked taxel cluster makes a pretrained edge-contact feature appear reliable until the grasp rolls. The frozen audit tags this boundary under \texttt{sensor\_bias\_shift/taxel\_bias} with severity 0.84. The proposed method status is: detected late by v5; oracle still better. Required next evidence: Require hardware sensor-health logs and dropout-robust tactile encoders..
+
+\paragraph{F2: texture aliasing false confidence.} Two materials share a high-frequency texture signature but have opposite slip thresholds. The frozen audit tags this boundary under \texttt{heldout\_material/texture\_aliasing} with severity 0.82. The proposed method status is: v5 lowers harm but keeps residual false confidence. Required next evidence: Validate aliasing with real material libraries..
+
+\paragraph{F3: transient shear latency.} A shear spike arrives after the control decision, so the source feature is temporally misaligned. The frozen audit tags this boundary under \texttt{latency\_contact\_shift/transient\_shear\_spike} with severity 0.86. The proposed method status is: latency compensation helps but cannot remove all delay. Required next evidence: Measure sensor-to-actuator timing on hardware..
+
+\paragraph{F4: beneficial feature over rejected.} A conservative gate rejects a useful pretrained channel during benign clean transfer. The frozen audit tags this boundary under \texttt{clean\_transfer/source\_matched} with severity 0.46. The proposed method status is: v5 retention term reduces but does not eliminate this error. Required next evidence: Tune clean-transfer retention with real validation contacts..
+
+\paragraph{F5: contact geometry outside source.} A contact patch shape has no source-domain analogue and confuses channel criticality. The frozen audit tags this boundary under \texttt{heldout\_geometry/compound\_contact\_shift} with severity 0.90. The proposed method status is: v5 abstains more often. Required next evidence: Add geometry-conditioned tactile augmentation..
+
+\paragraph{F6: slip damage asymmetry.} A small slip error causes irreversible drop damage while similar classification errors are benign. The frozen audit tags this boundary under \texttt{combined\_stress/low\_friction} with severity 0.88. The proposed method status is: damage-asymmetry term improves fixed-risk utility. Required next evidence: Report damage-weighted success, not raw success alone..
+
+\paragraph{F7: shear without normal force.} Shear appears before normal-force change and is missed by scalar uncertainty gates. The frozen audit tags this boundary under \texttt{latency\_contact\_shift/transient\_shear\_spike} with severity 0.80. The proposed method status is: action-critical mask improves detection. Required next evidence: Use transient tactile features in external validation..
+
+\paragraph{F8: sensor health confounded with task.} Taxel bias correlates with hard tasks, making adaptation mistake damage for task difficulty. The frozen audit tags this boundary under \texttt{sensor\_bias\_shift/taxel\_bias} with severity 0.78. The proposed method status is: health model partially disentangles the effect. Required next evidence: Collect calibration sweeps separated from task labels..
+
+\paragraph{F9: domain adversarial over alignment.} Domain alignment erases a tactile feature that is predictive only in the target domain. The frozen audit tags this boundary under \texttt{heldout\_material/soft\_compliance} with severity 0.72. The proposed method status is: v5 retains action-critical target evidence. Required next evidence: Compare against invariant-risk and target-only baselines..
+
+\paragraph{F10: test time adaptation harm.} Fast adaptation chases a drifting tactile channel and increases regret. The frozen audit tags this boundary under \texttt{combined\_stress/latency\_and\_drift} with severity 0.74. The proposed method status is: risk budget rejects some harmful adapted states. Required next evidence: Freeze adaptation windows before final evaluation..
+
+\paragraph{F11: oracle headroom compound shift.} Oracle feature selection remains above v5 when all shift types co-occur. The frozen audit tags this boundary under \texttt{combined\_stress/compound\_contact\_shift} with severity 0.91. The proposed method status is: reported as residual headroom. Required next evidence: Do not claim solved negative transfer..
+
+\paragraph{F12: query budget exhaustion.} High uncertainty methods spend queries on non-action-critical tactile features. The frozen audit tags this boundary under \texttt{combined\_stress/taxel\_bias} with severity 0.70. The proposed method status is: v5 lowers query cost relative to uncertainty gates. Required next evidence: Evaluate under fixed query budgets..
+
+\paragraph{F13: friction compliance interaction.} Soft objects appear safe at low force but fail after accumulated deformation. The frozen audit tags this boundary under \texttt{friction\_compliance\_shift/soft\_compliance} with severity 0.76. The proposed method status is: v5 helps through damage asymmetry. Required next evidence: Add deformation-state memory..
+
+\paragraph{F14: thin object edge aliasing.} Thin object edges mimic texture changes and trigger wrong transfer decisions. The frozen audit tags this boundary under \texttt{heldout\_geometry/texture\_aliasing} with severity 0.73. The proposed method status is: v5 has fewer but nonzero false rejections. Required next evidence: Use geometry-aware tactile representations..
+
+\paragraph{F15: snap fit force threshold.} Snap-fit success requires force transients that look harmful under source data. The frozen audit tags this boundary under \texttt{combined\_stress/latency\_and\_drift} with severity 0.79. The proposed method status is: v5 preserves more clean success than conformal risk. Required next evidence: Separate necessary force from damaging force..
+
+\paragraph{F16: fragile handoff under shift.} A fragile container shifts grip dynamics after handoff, increasing unseen damage. The frozen audit tags this boundary under \texttt{sensor\_bias\_shift/compound\_contact\_shift} with severity 0.87. The proposed method status is: v5 reduces damage but not enough for submission claim. Required next evidence: Require robot handoff rollouts and videos..
+
+\paragraph{F17: surface following lag.} Tactile servoing lags a surface ridge and accumulates path error. The frozen audit tags this boundary under \texttt{latency\_contact\_shift/latency\_and\_drift} with severity 0.77. The proposed method status is: latency term improves regret. Required next evidence: Validate timing in closed-loop servo control..
+
+\paragraph{F18: masked pretraining shortcut.} Masked pretraining encodes object identity rather than contact mechanics. The frozen audit tags this boundary under \texttt{heldout\_object/source\_matched} with severity 0.66. The proposed method status is: v5 beats masked pretraining under heldout object. Required next evidence: Audit representation shortcuts..
+
+\paragraph{F19: contrastive positive pair mismatch.} Contrastive positives preserve source material identity, harming target compliance. The frozen audit tags this boundary under \texttt{heldout\_material/soft\_compliance} with severity 0.69. The proposed method status is: v5 uses mismatch estimate to reject the channel. Required next evidence: Use target-aware positive-pair construction..
+
+\paragraph{F20: conformal over conservatism.} Conformal risk control rejects too many beneficial transfers in clean settings. The frozen audit tags this boundary under \texttt{clean\_transfer/source\_matched} with severity 0.52. The proposed method status is: v5 improves retention but keeps risk coverage finite. Required next evidence: Report clean-transfer retention alongside safety..
+
+\paragraph{F21: ensemble disagreement blind spot.} Ensemble members agree on the same wrong tactile alias. The frozen audit tags this boundary under \texttt{combined\_stress/texture\_aliasing} with severity 0.81. The proposed method status is: v5 action-critical mismatch catches more aliases. Required next evidence: Stress-test epistemic and aleatoric failure separately..
+
+\paragraph{F22: no tactile baseline edge.} A no-tactile policy can be safer than bad tactile transfer under severe latency. The frozen audit tags this boundary under \texttt{latency\_contact\_shift/transient\_shear\_spike} with severity 0.64. The proposed method status is: reported as a boundary case. Required next evidence: Always include no-tactile and scratch baselines..
+
+\paragraph{F23: scratch data hunger.} Scratch tactile learning avoids source harm but lacks target data efficiency. The frozen audit tags this boundary under \texttt{combined\_stress/compound\_contact\_shift} with severity 0.62. The proposed method status is: v5 keeps transfer benefit with lower harm. Required next evidence: Report data/query cost explicitly..
+
+\paragraph{F24: policy checkpoint absence.} The audit is deterministic and local but has no trained tactile policy checkpoint. The frozen audit tags this boundary under \texttt{all/local-only} with severity 0.95. The proposed method status is: scope gate fails honestly. Required next evidence: Release trained checkpoints and hardware logs before submission..
+
+\clearpage
+\section{Appendix K: Reproducibility Checklist}
+\paragraph{Code.}
+The released experiment is deterministic under the repository seed and runs CPU-only. It writes all CSVs, generated LaTeX tables, figures, and the JSON summary used by the manuscript. Numeric values in the abstract and results are produced from `results/summary.json`, not hand-entered independently.
+
+\paragraph{Data.}
+The current data are local synthetic stress cells, not real tactile robot rollouts. This is why the scope gate fails. A future submission must include raw tactile streams, sensor metadata, calibration logs, trained checkpoints, and rollout videos.
+
+\paragraph{Compute.}
+The experiment is RAM-light because it writes aggregate cell rows rather than storing per-episode trajectories. The manuscript reports cell counts and aggregation counts so a reviewer can detect stale or truncated outputs.
+
+\paragraph{Artifact placement.}
+The final numbered PDF must live at `C:/Users/wangz/Downloads/113.pdf`. A copy must not be placed on the visible Desktop. The validator checks the Downloads PDF hash, page count, LaTeX logs, BibTeX logs, CSV rows, and forbidden PDF locations.
+
+\clearpage
+\section{Appendix L: Reviewer Attack Surface}
+\paragraph{Attack: the benchmark is synthetic.}
+Accepted. The terminal decision remains STRONG\_REVISE and not ICLR-main ready. The local benchmark is useful for method development, but it cannot substitute for real robot or accepted high-fidelity validation.
+
+\paragraph{Attack: the method may over-reject tactile pretraining.}
+The clean-transfer gate addresses this. Proposed clean-transfer success is within 0.000 of the best clean non-oracle method. Still, hardware validation must check clean-transfer retention with real sensors.
+
+\paragraph{Attack: uncertainty baselines are weak.}
+The comparison includes uncertainty-gated transfer, ensemble disagreement, conformal tactile risk control, sensor-health filtering, invariant-risk alignment, and the retained v4.1 proposed method. The strongest non-oracle baseline is \texttt{proposed\_negative\_transfer\_guard\_v4}; the proposed v5 guard beats it on hard success, utility, harmful transfer, F1, damage, query cost, regret, stress endpoint, and fixed-risk utility.
+
+\paragraph{Attack: oracle headroom is large.}
+Correct. The oracle reaches success 0.834 and utility 0.755. This is reported as headroom, not hidden.
+
+\clearpage
+\section{Appendix M: Statistical Notes}
+\paragraph{Paired seeds.}
+All hard comparisons use paired seeds. This matters because tactile regimes vary strongly by task and contact shift. Pairing reduces noise from task/regime composition and makes the v5-versus-v4.1 comparison more direct.
+
+\paragraph{Confidence intervals.}
+The generated tables include mean and confidence-interval fields in the CSV artifacts. The manuscript emphasizes margins and gates rather than claiming formal population-level significance. The local benchmark is deterministic and synthetic, so confidence intervals should be read as seed-level robustness summaries, not as hardware uncertainty.
+
+\paragraph{Strongest-baseline selection.}
+The strongest non-oracle baseline is selected after aggregating the frozen hard split, but the candidate set is fixed before the run. This prevents cherry-picking a weak comparator. In the final result, the selected baseline is the retained v4.1 guard, which is the hardest comparator available inside this local continuation.
+
+\paragraph{Multiple metrics.}
+The protocol intentionally uses multiple metrics because tactile negative transfer is not a scalar success problem. A method must improve success and utility while not increasing damage, query burden, or regret. This multi-metric gate is stricter than reporting only the most favorable number.
+
+\paragraph{Synthetic evidence.}
+The local deterministic audit is useful for development and regression testing. It is not a substitute for real tactile robot evidence. Any final submission should repeat the same statistical discipline on external data rather than replacing it with a less hostile hardware protocol.
+
+\clearpage
+\section{Appendix N: Artifact Manifest}
+\paragraph{Experiment script.}
+`src/run\_experiment.py` defines tasks, regimes, splits, baselines, ablations, stress sweeps, fixed-risk budgets, failure cases, and frozen gates. It writes `results/summary.json`, CSVs, generated LaTeX tables, and figures.
+
+\paragraph{Manuscript generator.}
+`scripts/generate\_manuscript.py` reads `results/summary.json` and `results/failure\_cases.csv`, writes `paper/main.tex`, writes `paper/references.bib`, and inserts generated values into the abstract, tables, gate discussion, appendices, and reviewer attack surface.
+
+\paragraph{Validator.}
+`scripts/validate\_submission\_artifacts.py` checks row counts, numeric finiteness, gate status, page count, PDF hash consistency, LaTeX/BibTeX logs, bright boxed citation settings, generated gate math symbols, and forbidden PDF locations.
+
+\paragraph{Canonical PDF.}
+The final numbered PDF must be `C:/Users/wangz/Downloads/113.pdf`. The repository keeps `paper/main.pdf` for reproducibility, but no numbered `113.pdf` may appear in the repo root, factory root, or visible Desktop.
+
+\paragraph{Public repository.}
+The public repository URL is `https://github.com/Jason-Wang313/113\_tactile\_pretraining\_negative\_transfer`. The final commit should contain the v5 experiment, manuscript generator, validator, generated artifacts, status docs, and the honest STRONG\_REVISE decision.
 
 \begingroup
 \raggedright

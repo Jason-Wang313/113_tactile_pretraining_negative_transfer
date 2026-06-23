@@ -2,55 +2,55 @@
 
 Paper: 113 tactile_pretraining_negative_transfer
 
-This v4.1 pass replaces the v3 archive decision with a stronger local empirical rebuild and expanded continuation audit. The result is `STRONG_REVISE`, not final ICLR-main readiness.
+The v5_expanded pass replaces the earlier v4.1 continuation package with a 25-page local submission audit. The result is `STRONG_REVISE`, not final ICLR-main readiness.
 
 ## Attack 1: No real robot validation.
 
 Verdict: Still a blocker for readiness.
 
-Action: Preserve `ICLR main ready: no`; require real robot or external high-fidelity validation before final submission.
+Action: Preserve `ICLR main ready: no`; require real tactile robot or accepted high-fidelity tactile validation before final submission.
 
 ## Attack 2: Synthetic/template evidence.
 
-Verdict: Partially addressed.
+Verdict: Locally addressed, globally still limited.
 
-Action: Replaced the generic branch scaffold with a paper-specific tactile negative-transfer benchmark spanning 5 tasks, 7 tactile shift regimes, 5 splits, 9 methods, 7 seeds, and 84 rollout episodes per group.
+Action: Expanded the paper-specific tactile negative-transfer benchmark to 10 tasks, 8 regimes, 8 splits, 16 methods, and 10 paired seeds, producing 102,400 main cells. This is real local evidence, but not a substitute for hardware or accepted external simulation.
 
 ## Attack 3: Weak baselines.
 
 Verdict: Addressed locally.
 
-Action: Added frozen pretraining, full fine-tuning, domain-adversarial transfer, uncertainty-gated transfer, ensemble disagreement filtering, scratch tactile learning, no-tactile control, and oracle feature selection.
+Action: Included no-tactile, scratch, frozen, fine-tuned, domain-adversarial, invariant-risk, uncertainty, ensemble, conformal, sensor-health, test-time adaptation, masked-pretraining, contrastive-pretraining, retained v4 guard, and oracle comparisons.
 
 ## Attack 4: The proposed method is just uncertainty filtering.
 
 Verdict: Addressed locally.
 
-Action: The proposed guard beats `ensemble_disagreement_filter` by `0.106 +/- 0.008` success, wins `7/7` seeds, and has lower harmful transfer, damage, and query cost.
+Action: The v5 guard beats the retained v4 guard by `+0.04684` hard success and `+0.08172` hard utility, wins `10/10` paired hard utility seeds, and improves harmful transfer, tactile-event F1, damage, query cost, and regret.
 
 ## Attack 5: Tactile pretraining may only help clean transfer.
 
 Verdict: Addressed locally.
 
-Action: Clean transfer is preserved: proposed clean-transfer success is `0.701`, while the strongest clean baseline, `full_finetune_pretrained`, is `0.651`.
+Action: Clean-transfer success gap is `0.00000`, while hard-shift and stress/fixed-risk margins remain positive.
 
 ## Attack 6: Components may be unnecessary.
 
 Verdict: Addressed locally.
 
-Action: Best removed-component ablation trails the full method by `0.026`, clearing the `0.020` gate. Removing mismatch detection, action-critical masking, clean-transfer retention, slip/drop cost, or calibration harms success and/or safety.
+Action: Best ablation trails the full method by `0.01693` success and `0.03438` utility.
 
 ## Attack 7: Missing trained checkpoints.
 
 Verdict: Still a blocker for readiness.
 
-Action: Document as a remaining requirement. The v4 benchmark is evidence for a rebuild direction, not a final trained model release.
+Action: Document as a remaining requirement. The v5 benchmark is evidence for a rebuild direction, not a final trained model release.
 
 ## Attack 8: Related work still shallow.
 
 Verdict: Still a blocker for readiness.
 
-Action: Hostile-pool map is updated, but final submission needs manual full-paper synthesis.
+Action: Hostile-pool map is preserved, but final submission needs manual full-paper synthesis and exact positioning against tactile representation/policy papers.
 
 ## Attack 9: Main-conference decision.
 
@@ -60,6 +60,6 @@ Action: Keep the paper alive and expand with external validation; do not mark as
 
 ## Attack 10: Stress/failure coverage is thin.
 
-Verdict: Addressed locally in v4.1.
+Verdict: Addressed locally.
 
-Action: Expanded stress evidence to `5,880` task/regime/seed rows and failure documentation to `8` concrete tactile-transfer boundaries.
+Action: Expanded stress evidence to 48,000 stress cells, fixed-risk evidence to 51,200 cells, and failure documentation to 24 boundaries.

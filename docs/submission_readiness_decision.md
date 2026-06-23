@@ -4,8 +4,8 @@ Decision: STRONG_REVISE
 
 ICLR main-conference readiness: NO.
 
-Reason: The v4.1 rebuild adds a paper-specific tactile negative-transfer benchmark with strong local evidence. The proposed guard beats the strongest non-oracle baseline by `0.106 +/- 0.008` combined-stress success, wins `7/7` paired seeds, improves harmful-transfer, tactile-event, damage, and query-cost diagnostics, survives ablations, expands stress coverage to `5,880` task/regime/seed rows, documents `8` failure cases, and has no numeric-integrity issues.
+Reason: The v5 rebuild creates a 25-page submission audit with a frozen CPU-only benchmark, strong retained baselines, ablations, stress sweeps, fixed-risk tests, failure cases, and bright boxed clickable citations. The proposed method beats the strongest non-oracle retained guard on hard success, hard utility, harmful-transfer rate, tactile-event F1, damage rate, query cost, regret, stress endpoint utility, and fixed-risk utility. All frozen local gates pass.
 
-Honest terminal action: keep and revise aggressively. Do not submit as final ICLR main paper until external validation is added.
+Honest terminal action: keep and revise aggressively. Do not submit as final ICLR main paper until external tactile validation is added.
 
-Revival-to-ready condition: add real robot or accepted high-fidelity simulator experiments, train/release tactile encoders, compare to external tactile policy baselines, and deepen related work through manual full-paper reading.
+Revival-to-ready condition: add real tactile robot experiments or an accepted high-fidelity tactile simulator, train/release tactile encoders and policies, provide calibration logs and rollout videos, compare to external tactile policy baselines, and deepen related work with manual full-paper synthesis.
